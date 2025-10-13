@@ -1,5 +1,6 @@
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from typing import List
+from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 from model.controller.input.text_request import TextRequest
@@ -20,6 +21,15 @@ app.add_middleware(
 )
 
 texts_collection = db_client.texts
+
+# redirect to https://paste.lueyo.es/
+@app.get("/")
+async def root():
+    return RedirectResponse(url="https://paste.lueyo.es/")
+
+@app.get("/ping")
+async def ping():
+    return {"message": "pong!"}
 
 @app.post("/text")
 async def create_text(text_request: TextRequest):
