@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, HTTPException, Query, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Response, status
 from typing import List
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +10,7 @@ from db.client import db_client
 app = FastAPI(
     title="pastelueyo",
     description="API para transmitir texto copiado y pegado entre diferentes dispositivos.",
-    version="1.0.0"
+    version="1.0.0",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -22,29 +22,39 @@ app.add_middleware(
 
 texts_collection = db_client.texts
 
+
 # redirect to https://paste.lueyo.es/
 @app.get("/")
 async def root():
     return RedirectResponse(url="https://paste.lueyo.es/")
 
+
 @app.get("/ping")
 async def ping():
     return {"message": "pong"}
 
-@app.post("/text")
+
+@app.post("/text", status_code=status.HTTP_201_CREATED)
 async def create_text(text_request: TextRequest):
+    # Check if text already exists
+    existing = await texts_collection.find_one({"text": text_request.text})
+    if existing:
+        return Response(
+            content=f'{{"id": "{existing["_id"]}"}}',
+            status_code=status.HTTP_200_OK,
+            media_type="application/json",
+        )
+
+    # Generate unique ID and insert new document
     while True:
         text_id = gen_short_id()
         if await texts_collection.find_one({"_id": text_id}) is None:
             break
     timestamp = datetime.now().isoformat()
-    document = {
-        "_id": text_id,
-        "text": text_request.text,
-        "timestamp": timestamp
-    }
+    document = {"_id": text_id, "text": text_request.text, "timestamp": timestamp}
     await texts_collection.insert_one(document)
     return {"id": text_id}
+
 
 @app.get("/{text_id}")
 async def get_text(text_id: str, type: str = Query("txt", enum=["txt", "json"])):
@@ -57,5 +67,5 @@ async def get_text(text_id: str, type: str = Query("txt", enum=["txt", "json"]))
         return {
             "id": document["_id"],
             "text": document["text"],
-            "date": document["timestamp"]
+            "date": document["timestamp"],
         }
