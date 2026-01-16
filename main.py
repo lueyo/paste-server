@@ -29,11 +29,14 @@ async def root():
 
 @app.get("/ping")
 async def ping():
-    return {"message": "pong!"}
+    return {"message": "pong"}
 
 @app.post("/text")
 async def create_text(text_request: TextRequest):
-    text_id = gen_short_id()
+    while True:
+        text_id = gen_short_id()
+        if await texts_collection.find_one({"_id": text_id}) is None:
+            break
     timestamp = datetime.now().isoformat()
     document = {
         "_id": text_id,
